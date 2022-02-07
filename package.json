@@ -6,7 +6,7 @@
   "scripts": {
     "build": "rm -rf dist && esbuild src/* --outdir=dist --platform=node --format=cjs",
     "test": "mw test",
-    "cov": "mw cov",
+    "cov": "jest --coverage",
     "clean": "rm -rf node_modules/ package-lock.json dist"
   },
   "files": [
