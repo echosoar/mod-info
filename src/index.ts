@@ -1,24 +1,29 @@
-import { IConfig, IResult } from "./interface";
+import { IConfig, IResult, IVersion, ITipRule } from "./interface";
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { existsSync, readFileSync } from 'fs';
-import { exec } from "./utils";
+import { existsSync, readFileSync, writeFileSync, mkdirSync} from 'fs';
+import { exec, formatVersion, matchVersion } from "./utils";
 export default async (moduleName: string, currentVersion: string, options?: IConfig): Promise<IResult> => {
-  const { level, timeout } = {
+  const { level, timeout, ignoreInformalVersion } = {
     level: ['major', 'minor', 'patch'],
     timeout: 24 * 60 * 60 * 1000,
+    ignoreInformalVersion: true,
     ...options,
   }
 
-  console.log('level', level);
-  const cacheFile = join(tmpdir(), `modInfo_${moduleName.replace(/[^\w]/g, '_')}_cache.json`);
-  let cache: IResult & { time: number };
+  const curVersion = formatVersion(currentVersion);
+  const cacheDir = join(tmpdir(), `npmModInfoCache`);
+  if (!existsSync(cacheDir)) {
+    mkdirSync(cacheDir, 0o777)
+  }
+  const cacheFile = join(cacheDir, `${(moduleName + '_' + currentVersion).replace(/[^\w]/g, '_')}_cache.json`);
+  let cache: { time: number, value: IResult };
   if (existsSync(cacheFile)) {
     cache = JSON.parse(readFileSync(cacheFile, 'utf-8'));
   }
 
   if (cache?.time && Date.now() - cache.time < timeout) {
-    return cache;
+    return cache.value;
   }
 
   let npmCmd = `npm`;
@@ -27,10 +32,72 @@ export default async (moduleName: string, currentVersion: string, options?: ICon
   }
 
   const data = await exec({
-    cmd: `${npmCmd} view ${moduleName} dist-tags --json`,
+    cmd: `${npmCmd} view ${moduleName} --json`,
     baseDir: process.env.HOME
   });
 
-  console.log('data', data);
+  const { versions, 'module-info-tips': tipRules = [] } = JSON.parse(data as string);
 
+  let filterVersions: IVersion[] = versions.map(formatVersion).filter((version: IVersion) => {
+    if (ignoreInformalVersion && version.tag) {
+      return;
+    }
+
+    // patch: major and minor is same and minor is diff
+    if (level.includes('patch')) {
+      if (version.major === curVersion.major && version.minor === curVersion.minor && version.pacth > curVersion.pacth) {
+        return true;
+      }
+    }
+
+    // minor: major is same and minor is diff
+    if (level.includes('minor')) {
+      if (version.major === curVersion.major && version.minor > curVersion.minor) {
+        return true;
+      }
+    }
+
+    // major: only check major diff
+    if (level.includes('major')) {
+      if (version.major > curVersion.major) {
+        return true;
+      }
+    }
+  });
+
+  filterVersions = filterVersions.sort((aVer: IVersion, bVer: IVersion) => {
+    return bVer.score - aVer.score;
+  });
+
+  let update = false;
+  let newVersion;
+  if (filterVersions.length) {
+    update = true;
+    newVersion = filterVersions[0].version;
+  }
+
+  const tips = tipRules.filter((rule: ITipRule) => {
+    if (!rule?.tip) {
+      return false;
+    }
+    const ignore = [].concat(rule.ignore || []).find(rule => matchVersion(curVersion, rule));
+    if (ignore) {
+      return false;
+    }
+    const match = [].concat(rule.match || []).find(rule => matchVersion(curVersion, rule));
+    if (match) {
+      return true;
+    }
+    return false;
+  });
+
+  const result: IResult = {
+    update,
+    version: newVersion,
+    tips: tips.map((rule: ITipRule) => rule.tip),
+  }
+
+  writeFileSync(cacheFile, JSON.stringify({ time: Date.now(), value: result }))
+
+  return result;
 }
