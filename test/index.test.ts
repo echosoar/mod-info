@@ -98,4 +98,11 @@ describe('index.test.ts', () => {
     expect(info.tips.includes('1.x tip')).toBeFalsy();
     expect(info.tips.includes('x tip')).toBeTruthy();
   });
+
+
+  it('auto timeout', async () => {
+    const start = Date.now();
+    await mi('test-mode-info-xxx', '3.3.4', { timeout: 0, registry: 'https://xxx.com'})
+    expect(Date.now() - start < 2500).toBeTruthy();
+  });
 });

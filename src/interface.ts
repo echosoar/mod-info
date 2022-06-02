@@ -17,6 +17,7 @@ export type ILevelConfig = 'major' | 'minor' | 'patch';
 export interface IConfig {
   level?: ILevelConfig[];
   timeout?: number;
+  registry?: string;
   ignoreInformalVersion?: boolean;
 }
 
