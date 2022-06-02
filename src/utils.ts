@@ -3,15 +3,24 @@ import { IVersion } from './interface';
 export const exec = (options: {
   cmd: string;
   baseDir?: string;
+  timeout?: number
 }): Promise<string | ExecException> => {
-  const { cmd, baseDir } = options;
+  const { cmd, baseDir, timeout } = options;
   return new Promise((resolved, rejected) => {
+    let timeoutHandler;
+    if (timeout) {
+      timeoutHandler = setTimeout(() => {
+        rejected('timeout');
+      }, timeout)
+    }
+    
     const execProcess = cpExec(
       cmd,
       {
         cwd: baseDir,
       },
       (err, result) => {
+        clearTimeout(timeoutHandler);
         if (err) {
           return rejected(err);
         }
