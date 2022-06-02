@@ -4,10 +4,11 @@ import { join } from 'path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync} from 'fs';
 import { exec, formatVersion, matchVersion } from "./utils";
 export default async (moduleName: string, currentVersion: string, options?: IConfig): Promise<IResult> => {
-  const { level, timeout, ignoreInformalVersion } = {
+  const { level, timeout, ignoreInformalVersion, registry } = {
     level: ['major', 'minor', 'patch'],
     timeout: 24 * 60 * 60 * 1000,
     ignoreInformalVersion: true,
+    registry: '',
     ...options,
   }
 
@@ -27,7 +28,9 @@ export default async (moduleName: string, currentVersion: string, options?: ICon
   }
 
   let npmCmd = `npm`;
-  if (process.env.LANG === 'zh_CN.UTF-8') {
+  if (registry) {
+    npmCmd = `npm --registry=${registry}`;
+  } else  if (process.env.LANG === 'zh_CN.UTF-8') {
     npmCmd = 'npm --registry=https://registry.npmmirror.com';
   }
 

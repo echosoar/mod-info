@@ -1,4 +1,4 @@
-import { exec as cpExec, ExecException } from 'child_process';
+import { ChildProcess, exec as cpExec, ExecException } from 'child_process';
 import { IVersion } from './interface';
 export const exec = (options: {
   cmd: string;
@@ -8,13 +8,17 @@ export const exec = (options: {
   const { cmd, baseDir, timeout } = options;
   return new Promise((resolved, rejected) => {
     let timeoutHandler;
+    let execProcess: ChildProcess;
     if (timeout) {
       timeoutHandler = setTimeout(() => {
+        if (execProcess?.kill) {
+          execProcess.kill();
+        }
         rejected('timeout');
       }, timeout)
     }
     
-    const execProcess = cpExec(
+    execProcess = cpExec(
       cmd,
       {
         cwd: baseDir,

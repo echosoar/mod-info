@@ -1,6 +1,6 @@
 {
   "name": "mod-info",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Get the latest version update prompt of the node module (npm).",
   "main": "dist/index.js",
   "scripts": {
